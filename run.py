@@ -1,7 +1,6 @@
-import dataclasses
 import os
 import pickle
-from importlib.resources import open_text
+import dataclasses
 
 from dotenv import load_dotenv
 from pathlib import Path
@@ -26,45 +25,57 @@ class DataItem:
     ip: str
     ports: dict
 
-
-
-
-
-
-
 def get_data() -> dict:
     with open(DATA_FILE, 'rb') as f:
-        return pickle.load(f)
+        raw_items = pickle.load(f)
+    raw_items = [DataItem(**i) for i in raw_items]
+    return {i.name: i for i in raw_items}
 
 def put_data(data: dict) -> None:
+    _data = [i.__dict__ for i in data.values()]
     with open(DATA_FILE, 'wb') as f:
-        pickle.dump(data, f)
+        pickle.dump(_data, f)
 
-def search_data():
-    pass
+def add_data(params: dict) -> None:
+    item = DataItem(**params)
+    data = get_data()
 
-def print_data():
-    pass
+    if item.name in data:
+        _item = data[item.name]
+        for k, v in ((k, v) for k, v in item.__dict__.items() if v):
+            setattr(_item, k, v)
+    else:
+        data[item.name] = item
+
+    put_data(data)
+
+def show_data(filter_data: dict = None) -> None:
+    data = get_data()
+    result = list(data.values())
+
+    if filter_data and filter_data.keys():
+        func = get_filter_func(filter_data)
+        result = list(filter(func, result))
+
+    for i in result:
+        print(i)
+
+def get_filter_func(filter_data: dict):
+    def filter_func(item: DataItem):
+        is_valid = True
+        for k, v in filter_data.items():
+            val = getattr(item, k, None)
+            if not val or val != v:
+                is_valid = False
+                break
+        return is_valid
+    return filter_func
 
 
 if __name__ == '__main__':
     try:
-        item = DataItem(
-            name='dpiui2_main',
-            project='dpiui2',
-            ip='192.168.1.100',
-            ports=PORTS_SAMPLE,
-        )
-
-        data = {item.name: item.__dict__}
-
-        put_data(data)
-
-        # data = get_data()
-        # print(data)
-
-
-
+        # parse args and run funcs
+        pass
     except PermissionError:
         print(f'Error! Not enough access rights for data file "{DATA_FILE}".')
 
